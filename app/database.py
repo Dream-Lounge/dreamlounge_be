@@ -10,8 +10,8 @@ engine = create_engine(
     DATABASE_URL, pool_pre_ping=True
 )
 
-# 2. DB 세션 생성 (실제 쿼리 작업에 사용)
+# DB 세션 생성 (쿼리 실행에 사용)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# 3. 모델 정의를 위한 기본 클래스
+# 모델 정의를 위한 기본 클래스
 Base = declarative_base()
