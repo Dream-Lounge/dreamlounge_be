@@ -9,7 +9,6 @@ class UserGuest(Base):
     __tablename__ = "User_guest"
 
     student_id = Column(String(20), ForeignKey("User.student_id"), primary_key=True)
-    password = Column(String(255), nullable=False)
     role = Column(UserRoleEnum, nullable=False, default='GUEST') #잼미니는 기본값을 guest로 두래요. 근데 왜그럴까여,,
     created_date = Column(DateTime, default=datetime.now())
     
