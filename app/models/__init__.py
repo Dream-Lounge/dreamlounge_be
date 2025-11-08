@@ -1,8 +1,7 @@
-# C:\Project\DreamLounge\dream_lounge_be\app\models\__init__.py
-
-# user_base.py 파일의 User 클래스 임포트
-from .user_base import User 
-# 개별 파일의 상세 클래스 임포트
-from .user_member import UserMember
-from .user_guest import UserGuest
-from .user_admin import UserAdmin
+# app/models/__init__.py
+# 모델들을 임포트해서 Base.metadata에 모두 등록
+from .club import Club           # noqa: F401
+from .user import User, RoleEnum # noqa: F401
+from .user_member import UserMember  # noqa: F401
+from .user_guest import UserGuest    # noqa: F401
+from .user_admin import UserAdmin    # noqa: F401

@@ -1,17 +1,44 @@
-# database.py
+# app/database.py
+import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from .config import DATABASE_URL  # config.py에서 정의한 URL 불러오기
+from sqlalchemy.engine import URL
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-# 1. DB 연결 엔진 생성
-# pool_pre_ping=True: 연결 풀에서 연결을 사용하기 전에 유효성을 확인합니다.
-engine = create_engine(
-    DATABASE_URL, pool_pre_ping=True
+# (A) .env 로드를 "uv --env-file" 없이도 안전하게 하려면 주석 해제
+try:
+    from dotenv import load_dotenv  # uv add python-dotenv
+    load_dotenv()
+except Exception:
+    pass  # python-dotenv가 없어도 uv --env-file 로 실행하면 OK
+
+DB_USER = os.getenv("DB_USER", "user")
+DB_PASS = os.getenv("DB_PASS", "password")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "3306"))
+DB_NAME = os.getenv("DB_NAME", "dreamlounge_db")
+
+# (B) 기본값이 남아있으면 즉시 오류를 내서 문제를 빨리 알림
+if DB_USER == "user":
+    raise RuntimeError(
+        "[DB CONFIG] DB_USER가 기본값('user')입니다. .env가 로드되지 않았거나 값이 잘못되었습니다."
+    )
+
+# (C) DSN 생성 (mysql-connector-python 사용)
+url = URL.create(
+    drivername="mysql+mysqlconnector",
+    username=DB_USER,
+    password=DB_PASS,   # URL.create가 안전 처리
+    host=DB_HOST,
+    port=DB_PORT,
+    database=DB_NAME,
 )
 
-# DB 세션 생성 (쿼리 실행에 사용)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# (D) 마스킹된 DSN 로그
+masked = str(url)
+if DB_PASS:
+    masked = masked.replace(DB_PASS, "****")
+print(f"[DB] URL: {masked}")
 
-# 모델 정의를 위한 기본 클래스
+engine = create_engine(url, future=True, echo=False)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
 Base = declarative_base()
