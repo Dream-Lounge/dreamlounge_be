@@ -1,10 +1,20 @@
-# app/models/__init__.py
-# 모델들을 임포트해서 Base.metadata에 모두 등록
-from .club import Club           # noqa: F401
-from .user import User, RoleEnum # noqa: F401
-from .user_member import UserMember  # noqa: F401
-from .user_guest import UserGuest    # noqa: F401
-from .user_admin import UserAdmin    # noqa: F401
+from app.models.base import Base
+from app.models.enums import ClubType, MembershipStatus, UserType, ApplicationStatus
+from app.models.member import Member
+from app.models.club import Club
+from app.models.club_manager import ClubManager
+from app.models.application import Application
+from app.models.club_membership import ClubMembership
 
-from .submitted import Submitted, SubmissionStatus
-from .temp_saved import TempSaved, TempStatus
+__all__ = [
+    "Base",
+    "ClubType",
+    "MembershipStatus",
+    "UserType",
+    "ApplicationStatus",
+    "Member",
+    "Club",
+    "ClubManager",
+    "Application",
+    "ClubMembership",
+]
