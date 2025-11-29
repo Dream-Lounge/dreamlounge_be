@@ -6,7 +6,7 @@ from app.models.enums import ClubType
 
 class ClubBase(BaseModel):
     name: str
-    type: ClubType
+    club_type: ClubType  # ✅ type → club_type
     category: Optional[str] = None
     tag: Optional[str] = None
     description: Optional[str] = None
@@ -19,7 +19,7 @@ class ClubCreate(ClubBase):
 
 class ClubUpdate(BaseModel):
     name: Optional[str] = None
-    type: Optional[ClubType] = None
+    club_type: Optional[ClubType] = None  # ✅ type → club_type
     category: Optional[str] = None
     tag: Optional[str] = None
     description: Optional[str] = None

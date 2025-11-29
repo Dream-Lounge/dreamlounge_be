@@ -1,11 +1,22 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect
-from app.database import engine, SessionLocal, get_db  # ✅ Base 제거
-from app.models.base import Base  # ✅ Base는 여기서 import
-from app.models import (
-    Member, Club, ClubManager, Application, ClubMembership
-)
+
+# 로깅 초기화 (가장 먼저)
+from app.core.logging_config import setup_logging, get_logger
+from app.config import LOG_LEVEL, ENVIRONMENT, log_database_config
+
+setup_logging(log_level=LOG_LEVEL)
+logger = get_logger(__name__)
+
+# 데이터베이스 설정 로깅
+log_database_config()
+
+# 나머지 import
+from app.database import engine, SessionLocal, get_db
+from app.models.base import Base
+from app.utils.models import get_table_models, get_model_by_tablename
+from app.routers import members
 
 app = FastAPI(
     title="Club Management System",
@@ -13,18 +24,49 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.include_router(members.router)
+
 
 @app.on_event("startup")
 def on_startup():
-    print("[STARTUP] Creating database tables...")
-    Base.metadata.create_all(bind=engine)
-    print("[STARTUP] Database tables created successfully!")
+    logger.info("Application startup initiated")
+    logger.info(f"Environment: {ENVIRONMENT}")
+    logger.info(f"Log Level: {LOG_LEVEL}")
+    
+    try:
+        logger.info("Creating database tables...")
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created successfully")
+        
+        # 등록된 모델 확인 (DEBUG 레벨에서만)
+        models = get_table_models()
+        logger.debug(f"Registered models: {list(models.keys())}")
+        
+        logger.info("Application startup completed")
+    except Exception as e:
+        logger.error(f"Startup failed: {e}", exc_info=True)
+        raise
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    logger.info("Application shutdown initiated")
+
+
+# ... 나머지 코드는 동일
+
+
+@app.on_event("shutdown")
+def on_shutdown():
+    logger.info("Application shutdown initiated")
 
 
 @app.get("/")
 def read_root():
+    logger.debug("Root endpoint accessed")
     return {
         "message": "Club Management API",
+        "environment": ENVIRONMENT,
         "endpoints": {
             "database_info": "/db/info",
             "all_tables": "/db/tables",
@@ -33,6 +75,8 @@ def read_root():
         }
     }
 
+
+# ... 나머지 엔드포인트는 동일
 
 @app.get("/db/info")
 def get_database_info():
@@ -100,7 +144,7 @@ def get_table_structure(table_name: str):
     inspector = inspect(engine)
     
     if table_name not in inspector.get_table_names():
-        return {"error": f"Table '{table_name}' not found"}
+        raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found")
     
     columns = inspector.get_columns(table_name)
     pk_constraint = inspector.get_pk_constraint(table_name)
@@ -172,21 +216,16 @@ def get_table_data_sample(
     inspector = inspect(engine)
     
     if table_name not in inspector.get_table_names():
-        return {"error": f"Table '{table_name}' not found"}
+        raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found")
     
-    # 테이블별 모델 매핑
-    table_models = {
-        "member": Member,
-        "club": Club,
-        "club_manager": ClubManager,
-        "application": Application,
-        "club_membership": ClubMembership
-    }
+    # ✅ 동적으로 모델 가져오기
+    model = get_model_by_tablename(table_name)
     
-    if table_name not in table_models:
-        return {"error": f"Model for table '{table_name}' not configured"}
-    
-    model = table_models[table_name]
+    if not model:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Model for table '{table_name}' not found"
+        )
     
     # 데이터 조회
     data = db.query(model).limit(limit).all()
@@ -221,18 +260,15 @@ def get_table_data_sample(
 @app.get("/db/tables/{table_name}/count")
 def get_table_row_count(table_name: str, db: Session = Depends(get_db)):
     """특정 테이블의 전체 레코드 수"""
-    table_models = {
-        "member": Member,
-        "club": Club,
-        "club_manager": ClubManager,
-        "application": Application,
-        "club_membership": ClubMembership
-    }
+    # ✅ 동적으로 모델 가져오기
+    model = get_model_by_tablename(table_name)
     
-    if table_name not in table_models:
-        return {"error": f"Model for table '{table_name}' not configured"}
+    if not model:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Model for table '{table_name}' not found"
+        )
     
-    model = table_models[table_name]
     count = db.query(model).count()
     
     return {
@@ -297,4 +333,22 @@ def get_mermaid_erd():
     
     return {
         "mermaid_code": "\n".join(mermaid_lines)
+    }
+
+
+@app.get("/db/models")
+def get_registered_models():
+    """등록된 모든 모델 정보"""
+    models = get_table_models()
+    
+    return {
+        "total_models": len(models),
+        "models": {
+            table_name: {
+                "class_name": model.__name__,
+                "module": model.__module__,
+                "table_name": table_name
+            }
+            for table_name, model in models.items()
+        }
     }

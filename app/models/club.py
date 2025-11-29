@@ -10,7 +10,7 @@ class Club(Base):
     
     club_id = Column(Integer, primary_key=True, autoincrement=True, comment="동아리ID")
     name = Column(String(100), nullable=False, comment="동아리이름")
-    type = Column(Enum(ClubType), nullable=False, comment="유형(학과/중앙)")
+    club_type = Column(Enum(ClubType), nullable=False, comment="유형(학과/중앙)")  # ✅ type → club_type
     category = Column(String(50), comment="분야")
     tag = Column(String(255), comment="키워드")
     description = Column(Text, comment="동아리소개")
