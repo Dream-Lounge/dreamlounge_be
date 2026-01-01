@@ -359,6 +359,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 from app.database import engine, SessionLocal, get_db
 from app.models.base import Base
@@ -366,10 +367,26 @@ from app.models import (
     Member, Club, ClubManager, Application, ClubMembership, TestApplication,
 )
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # [Startup 로직]
+    print("[STARTUP] Creating database tables...")
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("[STARTUP] Database tables created successfully!")
+    except Exception as e:
+        print(f"[STARTUP ERROR] {e}")
+    
+    yield  # 👈 앱이 실행되는 동안 대기 (이 지점에서 API 통신이 이루어짐)
+    
+    # [Shutdown 로직] - 필요 시 작성 (예: DB 연결 해제 등)
+    print("[SHUTDOWN] Application is shutting down...")
+
 app = FastAPI(
     title="Club Management System",
     description="동아리 관리 시스템 API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # ✅ 정적 파일 디렉토리 마운트 (form 폴더)
@@ -378,11 +395,6 @@ if FORM_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(FORM_DIR)), name="static")
 
 
-@app.on_event("startup")
-def on_startup():
-    print("[STARTUP] Creating database tables...")
-    Base.metadata.create_all(bind=engine)
-    print("[STARTUP] Database tables created successfully!")
 
 
 @app.get("/")
