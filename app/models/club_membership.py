@@ -17,6 +17,6 @@ class ClubMembership(Base):
     left_at = Column(DateTime, nullable=True, comment="탈퇴일시")
     
     # Relationships
-    member = relationship("Member", back_populates="club_memberships")
-    club = relationship("Club", back_populates="club_memberships")
-    application = relationship("Application", back_populates="club_membership")
+    # member = relationship("Member", back_populates="club_memberships")
+    # club = relationship("Club", back_populates="club_memberships")
+    # application = relationship("Application", back_populates="club_membership")

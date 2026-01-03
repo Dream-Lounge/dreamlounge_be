@@ -1,3 +1,4 @@
+# app/models/member.py
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -11,10 +12,10 @@ class Member(Base):
     name = Column(String(50), nullable=False, comment="이름")
     department = Column(String(100), comment="학과")
     phone = Column(String(20), comment="전화번호")
-    password = Column(String(255), nullable=False, comment="비밀번호")
+    password = Column(String(255), nullable=False, comment="비밀번호(해시)")
     registered_at = Column(DateTime, default=datetime.utcnow, comment="가입일시")
     
-    # Relationships
-    club_managers = relationship("ClubManager", back_populates="member")
-    applications = relationship("Application", back_populates="member")
-    club_memberships = relationship("ClubMembership", back_populates="member")
+    # ✅ Relationships 주석 처리 (나중에 필요할 때 다시 활성화)
+    # club_managers = relationship("ClubManager", back_populates="member")
+    # applications = relationship("Application", back_populates="member")
+    # club_memberships = relationship("ClubMembership", back_populates="member")

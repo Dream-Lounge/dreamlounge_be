@@ -10,8 +10,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # 환경 변수 읽기
-DB_USERNAME = os.getenv("DB_USERNAME", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_USERNAME = os.getenv("DB_USER", "root")
+DB_PASSWORD = os.getenv("DB_PASS", "")
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
 DB_PORT = os.getenv("DB_PORT", "3306")
 DB_NAME = os.getenv("DB_NAME", "dreamlounge_db")

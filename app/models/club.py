@@ -19,6 +19,6 @@ class Club(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="수정일시")
     
     # Relationships
-    club_managers = relationship("ClubManager", back_populates="club")
-    applications = relationship("Application", back_populates="club")
-    club_memberships = relationship("ClubMembership", back_populates="club")
+    # club_managers = relationship("ClubManager", back_populates="club")
+    # applications = relationship("Application", back_populates="club")
+    # club_memberships = relationship("ClubMembership", back_populates="club")

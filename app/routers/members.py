@@ -1,3 +1,4 @@
+# app/routers/members.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -12,7 +13,16 @@ logger = get_logger(__name__)
 
 @router.post("/", response_model=MemberResponse, status_code=status.HTTP_201_CREATED)
 def create_member(member_data: MemberCreate, db: Session = Depends(get_db)):
-    """회원가입"""
+    """
+    회원가입
+    
+    - **student_id**: 학번 (8자리)
+    - **name**: 이름
+    - **department**: 학과
+    - **phone**: 전화번호 (010-1234-5678)
+    - **password**: 비밀번호 (8자 이상, 영문+숫자)
+    - **password_confirm**: 비밀번호 확인
+    """
     logger.info(f"Creating new member: student_id={member_data.student_id}")
     
     # 1. 중복 확인
@@ -30,7 +40,7 @@ def create_member(member_data: MemberCreate, db: Session = Depends(get_db)):
     # 2. 비밀번호 해싱
     hashed_password = hash_password(member_data.password)
     
-    # 3. Member 객체 생성
+    # 3. Member 객체 생성 (password_confirm은 제외)
     db_member = Member(
         student_id=member_data.student_id,
         name=member_data.name,
@@ -50,7 +60,12 @@ def create_member(member_data: MemberCreate, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(login_data: MemberLogin, db: Session = Depends(get_db)):
-    """로그인"""
+    """
+    로그인
+    
+    - **student_id**: 학번
+    - **password**: 비밀번호
+    """
     logger.info(f"Login attempt: student_id={login_data.student_id}")
     
     # 1. 사용자 조회
@@ -78,5 +93,19 @@ def login(login_data: MemberLogin, db: Session = Depends(get_db)):
     return {
         "message": "로그인 성공",
         "student_id": member.student_id,
-        "name": member.name
+        "name": member.name,
+        "department": member.department
+    }
+
+
+@router.get("/check/{student_id}")
+def check_student_id_exists(student_id: int, db: Session = Depends(get_db)):
+    """학번 중복 확인 (실시간 검증용)"""
+    existing = db.query(Member).filter(
+        Member.student_id == student_id
+    ).first()
+    
+    return {
+        "exists": existing is not None,
+        "student_id": student_id
     }

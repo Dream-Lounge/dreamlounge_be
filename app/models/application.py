@@ -37,9 +37,9 @@ class Application(Base):
     comment = Column(String(500), comment="검토의견")
     
     # 관계
-    club = relationship("Club", back_populates="applications")
-    member = relationship("Member", back_populates="applications")
-    club_membership = relationship("ClubMembership", back_populates="application", uselist=False)
+    # club = relationship("Club", back_populates="applications")
+    # member = relationship("Member", back_populates="applications")
+    # club_membership = relationship("ClubMembership", back_populates="application", uselist=False)
     
     # ✅ 중복 방지: 회원은 같은 동아리에 한 번만 신청 가능
     __table_args__ = (
