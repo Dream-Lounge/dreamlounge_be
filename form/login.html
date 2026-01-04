@@ -75,6 +75,23 @@
             margin-bottom: 20px;
             display: none;
         }
+        /* ✅ 추가: 성공 메시지 */
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .token-info {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 13px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -82,6 +99,7 @@
         <h1>로그인</h1>
         
         <div id="errorMessage" class="error"></div>
+        <div id="successMessage" class="success"></div>
         
         <form id="loginForm">
             <div class="form-group">
@@ -103,6 +121,13 @@
     </div>
 
     <script>
+        // ✅ 토큰 만료 시간 계산
+        function getTokenExpireTime(expiresIn) {
+            const now = new Date();
+            const expireTime = new Date(now.getTime() + expiresIn * 1000);
+            return expireTime;
+        }
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -112,6 +137,8 @@
             };
 
             try {
+                console.log('📤 로그인 요청 중...');
+                
                 const response = await fetch('/members/login', {
                     method: 'POST',
                     headers: {
@@ -123,15 +150,46 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    alert(`로그인 성공! ${data.name}님 환영합니다.`);
-                    window.location.href = '/';
+                    console.log('✅ 로그인 성공!', data);
+                    
+                    // ✅ JWT 토큰 저장
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('token_type', data.token_type);
+                    localStorage.setItem('user_info', JSON.stringify(data.user));
+                    
+                    // ✅ 토큰 만료 시간 저장
+                    const expireTime = getTokenExpireTime(data.expires_in);
+                    localStorage.setItem('token_expire_time', expireTime.toISOString());
+                    
+                    console.log('💾 토큰 저장 완료');
+                    console.log('📅 만료 시간:', expireTime.toLocaleString('ko-KR'));
+                    console.log('⏱️ 유효 시간:', Math.floor(data.expires_in / 60), '분');
+                    
+                    // ✅ 성공 메시지 표시
+                    const successMessage = document.getElementById('successMessage');
+                    successMessage.innerHTML = `
+                        <strong>✅ 로그인 성공!</strong><br>
+                        ${data.user.name}님 환영합니다.<br>
+                        <div class="token-info">
+                            토큰 만료: ${expireTime.toLocaleString('ko-KR')}<br>
+                            유효 시간: ${Math.floor(data.expires_in / 60)}분
+                        </div>
+                        <p style="margin-top: 10px;">2초 후 테스트 페이지로 이동합니다...</p>
+                    `;
+                    successMessage.style.display = 'block';
+                    
+                    // ✅ 2초 후 테스트 페이지로 이동
+                    setTimeout(() => {
+                        window.location.href = '/debug/test-page';
+                    }, 2000);
                 } else {
+                    console.log('❌ 로그인 실패:', data);
                     const errorMessage = document.getElementById('errorMessage');
                     errorMessage.textContent = data.detail || '로그인에 실패했습니다.';
                     errorMessage.style.display = 'block';
                 }
             } catch (error) {
-                console.error('Error:', error);
+                console.error('❌ Error:', error);
                 alert('로그인 중 오류가 발생했습니다.');
             }
         });

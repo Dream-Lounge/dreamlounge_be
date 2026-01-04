@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT 테스트 페이지</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .status-dot {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+        }
+        .status-dot.valid {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+        }
+        .status-dot.expired {
+            background: #ef4444;
+            box-shadow: 0 0 10px #ef4444;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .label {
+            font-weight: bold;
+            color: #666;
+        }
+        .value {
+            color: #333;
+        }
+        .timer {
+            font-size: 48px;
+            font-weight: bold;
+            text-align: center;
+            color: #667eea;
+            margin: 30px 0;
+        }
+        .timer.warning {
+            color: #f59e0b;
+        }
+        .timer.danger {
+            color: #ef4444;
+        }
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button.danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        .log {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid #667eea;
+            padding-left: 10px;
+        }
+        .log-entry.success {
+            border-left-color: #10b981;
+            background: #d1fae5;
+        }
+        .log-entry.error {
+            border-left-color: #ef4444;
+            background: #fee2e2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <div class="card">
+            <h1>🧪 JWT 인증 테스트 페이지</h1>
+            <p style="color: #666;">로그인 상태를 10분 동안 유지하고 만료를 테스트합니다.</p>
+        </div>
+
+        <!-- 사용자 정보 -->
+        <div class="card">
+            <h2>👤 사용자 정보</h2>
+            <div id="userInfo" class="info-grid">
+                <span class="label">로딩 중...</span>
+            </div>
+        </div>
+
+        <!-- 토큰 상태 -->
+        <div class="card">
+            <h2>🔐 토큰 상태</h2>
+            <div class="status">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">확인 중...</span>
+            </div>
+            
+            <div class="timer" id="timer">--:--</div>
+            
+            <div class="info-grid">
+                <span class="label">발급 시간</span>
+                <span class="value" id="issueTime">-</span>
+                
+                <span class="label">만료 시간</span>
+                <span class="value" id="expireTime">-</span>
+                
+                <span class="label">유효 기간</span>
+                <span class="value" id="validDuration">-</span>
+            </div>
+        </div>
+
+        <!-- 액션 버튼 -->
+        <div class="card">
+            <h2>🎮 테스트 액션</h2>
+            <button onclick="testAuth()">🧪 인증 테스트</button>
+            <button onclick="fetchProfile()">👤 프로필 가져오기</button>
+            <button onclick="refreshToken()">🔄 토큰 확인</button>
+            <button onclick="clearLogs()">🗑️ 로그 지우기</button>
+            <button class="danger" onclick="logout()">🚪 로그아웃</button>
+        </div>
+
+        <!-- 로그 -->
+        <div class="card">
+            <h2>📋 활동 로그</h2>
+            <div id="logContainer" class="log">
+                <div class="log-entry">시스템 준비 완료</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let timerInterval;
+
+        // 토큰 가져오기
+        function getToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        function getTokenType() {
+            return localStorage.getItem('token_type') || 'Bearer';
+        }
+
+        // 토큰 만료 확인
+        function isTokenExpired() {
+            const expireTimeStr = localStorage.getItem('token_expire_time');
+            if (!expireTimeStr) return true;
+            
+            const expireTime = new Date(expireTimeStr);
+            const now = new Date();
+            return now >= expireTime;
+        }
+
+        // 남은 시간 계산
+        function getRemainingTime() {
+            const expireTimeStr = localStorage.getItem('token_expire_time');
+            if (!expireTimeStr) return 0;
+            
+            const expireTime = new Date(expireTimeStr);
+            const now = new Date();
+            const diff = expireTime - now;
+            
+            return Math.max(0, diff);
+        }
+
+        // 시간 포맷 (MM:SS)
+        function formatTime(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        // 로그 추가
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString('ko-KR');
+            entry.textContent = `[${timestamp}] ${message}`;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+        }
+
+        // 로그 지우기
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '<div class="log-entry">로그가 지워졌습니다.</div>';
+            addLog('로그 초기화');
+        }
+
+        // 사용자 정보 표시
+        function displayUserInfo() {
+            const userInfoStr = localStorage.getItem('user_info');
+            if (!userInfoStr) {
+                addLog('사용자 정보 없음', 'error');
+                return;
+            }
+
+            const userInfo = JSON.parse(userInfoStr);
+            const userInfoDiv = document.getElementById('userInfo');
+            userInfoDiv.innerHTML = `
+                <span class="label">학번</span>
+                <span class="value">${userInfo.student_id}</span>
+                
+                <span class="label">이름</span>
+                <span class="value">${userInfo.name}</span>
+                
+                <span class="label">학과</span>
+                <span class="value">${userInfo.department || '-'}</span>
+                
+                <span class="label">전화번호</span>
+                <span class="value">${userInfo.phone || '-'}</span>
+            `;
+            
+            addLog(`사용자 정보 로드: ${userInfo.name}`);
+        }
+
+        // 토큰 상태 업데이트
+        function updateTokenStatus() {
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const timerDiv = document.getElementById('timer');
+            const expireTimeStr = localStorage.getItem('token_expire_time');
+            
+            if (!expireTimeStr) {
+                statusDot.className = 'status-dot expired';
+                statusText.textContent = '토큰 없음';
+                timerDiv.textContent = '--:--';
+                return;
+            }
+
+            const expireTime = new Date(expireTimeStr);
+            const remaining = getRemainingTime();
+            const expired = isTokenExpired();
+
+            // 상태
+            if (expired) {
+                statusDot.className = 'status-dot expired';
+                statusText.textContent = '만료됨';
+                timerDiv.textContent = '00:00';
+                timerDiv.className = 'timer danger';
+            } else {
+                statusDot.className = 'status-dot valid';
+                statusText.textContent = '유효함';
+                timerDiv.textContent = formatTime(remaining);
+                
+                // 타이머 색상
+                const minutes = Math.floor(remaining / 60000);
+                if (minutes < 2) {
+                    timerDiv.className = 'timer danger';
+                } else if (minutes < 5) {
+                    timerDiv.className = 'timer warning';
+                } else {
+                    timerDiv.className = 'timer';
+                }
+            }
+
+            // 시간 정보
+            document.getElementById('expireTime').textContent = expireTime.toLocaleString('ko-KR');
+            
+            // 발급 시간 계산 (만료 시간 - 10분)
+            const issueTime = new Date(expireTime.getTime() - 10 * 60 * 1000);
+            document.getElementById('issueTime').textContent = issueTime.toLocaleString('ko-KR');
+            
+            document.getElementById('validDuration').textContent = '10분';
+        }
+
+        // 토큰 확인
+        function refreshToken() {
+            updateTokenStatus();
+            addLog('토큰 상태 업데이트');
+        }
+
+        // 인증 테스트
+        async function testAuth() {
+            const token = getToken();
+            const tokenType = getTokenType();
+            
+            if (!token) {
+                addLog('토큰 없음', 'error');
+                alert('❌ 토큰이 없습니다. 다시 로그인해주세요.');
+                return;
+            }
+
+            if (isTokenExpired()) {
+                addLog('토큰 만료됨', 'error');
+                alert('❌ 토큰이 만료되었습니다.');
+                return;
+            }
+
+            addLog('인증 테스트 시작...');
+
+            try {
+                const response = await fetch('/members/me', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `${tokenType} ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    addLog(`✅ 인증 성공! (${data.name})`, 'success');
+                    alert('✅ 인증 성공! 토큰이 유효합니다.');
+                } else if (response.status === 401) {
+                    addLog('❌ 인증 실패: 401 Unauthorized', 'error');
+                    alert('❌ 인증 실패! 토큰이 유효하지 않습니다.');
+                } else {
+                    addLog(`❌ 오류: ${response.status}`, 'error');
+                    alert(`❌ 오류 발생: ${response.status}`);
+                }
+            } catch (error) {
+                addLog(`❌ 네트워크 오류: ${error.message}`, 'error');
+                alert('❌ 서버 통신 오류');
+            }
+        }
+
+        // 프로필 가져오기
+        async function fetchProfile() {
+            const token = getToken();
+            const tokenType = getTokenType();
+            
+            if (!token) {
+                addLog('토큰 없음', 'error');
+                return;
+            }
+
+            addLog('프로필 요청 중...');
+
+            try {
+                const response = await fetch('/members/me', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `${tokenType} ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    addLog(`✅ 프로필 로드 성공: ${data.name}`, 'success');
+                    
+                    // localStorage 업데이트
+                    localStorage.setItem('user_info', JSON.stringify(data));
+                    displayUserInfo();
+                } else {
+                    addLog(`❌ 프로필 로드 실패: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ 에러: ${error.message}`, 'error');
+            }
+        }
+
+        // 로그아웃
+        function logout() {
+            if (confirm('로그아웃하시겠습니까?')) {
+                localStorage.removeItem('access_token');
+                localStorage.removeItem('token_type');
+                localStorage.removeItem('user_info');
+                localStorage.removeItem('token_expire_time');
+                
+                addLog('로그아웃 완료', 'success');
+                alert('✅ 로그아웃되었습니다.');
+                
+                setTimeout(() => {
+                    window.location.href = '/debug/login-form';
+                }, 1000);
+            }
+        }
+
+        // 페이지 로드 시 실행
+        window.addEventListener('load', () => {
+            // 토큰 확인
+            const token = getToken();
+            if (!token) {
+                addLog('토큰 없음 - 로그인 필요', 'error');
+                alert('로그인이 필요합니다.');
+                window.location.href = '/debug/login-form';
+                return;
+            }
+
+            if (isTokenExpired()) {
+                addLog('토큰 만료 - 재로그인 필요', 'error');
+                alert('로그인 세션이 만료되었습니다.');
+                logout();
+                return;
+            }
+
+            // 초기 정보 표시
+            displayUserInfo();
+            updateTokenStatus();
+            addLog('페이지 로드 완료', 'success');
+
+            // 1초마다 타이머 업데이트
+            timerInterval = setInterval(() => {
+                updateTokenStatus();
+                
+                // 토큰 만료 시 자동 로그아웃
+                if (isTokenExpired()) {
+                    clearInterval(timerInterval);
+                    addLog('⏰ 토큰 만료 - 자동 로그아웃', 'error');
+                    alert('로그인 세션이 만료되었습니다.');
+                    logout();
+                }
+            }, 1000);
+        });
+
+        // 페이지 언로드 시 타이머 정리
+        window.addEventListener('beforeunload', () => {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+        });
+    </script>
+</body>
+</html>
