@@ -40,4 +40,5 @@ __all__ = [
     "ClubManager",
     "Application",
     "ClubMembership",
+    "TestApplication",
 ]

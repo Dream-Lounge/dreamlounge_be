@@ -1,11 +1,11 @@
 [project]
 name = "dream-lounge-be"
 version = "0.1.0"
-description = "Add your description here"
+description = "동아리 관리 시스템 백엔드 API"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "bcrypt>=5.0.0",
+    "bcrypt>=4.0.1",
     "fastapi[standard]>=0.116.1",
     "mysql>=0.0.3",
     "mysql-connector-python>=9.5.0",
@@ -16,6 +16,7 @@ dependencies = [
     "requests>=2.32.5",
     "sqlalchemy>=2.0.43",
     "uvicorn>=0.35.0",
+    "python-jose[cryptography]>=3.3.0",
 ]
 
 [dependency-groups]
@@ -23,3 +24,16 @@ dev = [
     "bcrypt>=5.0.0",
     "passlib>=1.7.4",
 ]
+
+# ✅ 빌드 시스템 설정 추가
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# ✅ setuptools 패키지 설정 (app만 Python 패키지로 인식)
+[tool.setuptools]
+packages = ["app"]
+
+# ✅ form 폴더의 정적 파일 포함 (선택사항)
+[tool.setuptools.package-data]
+"*" = ["*.html", "*.css", "*.js"]

@@ -1,11 +1,17 @@
 # app/routers/members.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from datetime import timedelta
 from app.database import get_db
 from app.models.member import Member
-from app.schemas.member import MemberCreate, MemberResponse, MemberLogin
+from app.schemas.member import (
+    MemberCreate, MemberResponse, MemberLogin, TokenResponse
+)
 from app.utils.password import hash_password, verify_password
 from app.core.logging_config import get_logger
+from app.core.security import create_access_token
+from app.core.dependencies import get_current_user
+from app.config import ACCESS_TOKEN_EXPIRE_MINUTES
 
 router = APIRouter(prefix="/members", tags=["Members"])
 logger = get_logger(__name__)
@@ -58,13 +64,16 @@ def create_member(member_data: MemberCreate, db: Session = Depends(get_db)):
     return db_member
 
 
-@router.post("/login")
+@router.post("/login", response_model=TokenResponse)
 def login(login_data: MemberLogin, db: Session = Depends(get_db)):
     """
-    로그인
+    로그인 - JWT 토큰 발급
     
     - **student_id**: 학번
     - **password**: 비밀번호
+    
+    성공 시 access_token을 반환합니다.
+    이후 API 요청 시 헤더에 `Authorization: Bearer <token>`을 포함하세요.
     """
     logger.info(f"Login attempt: student_id={login_data.student_id}")
     
@@ -88,14 +97,37 @@ def login(login_data: MemberLogin, db: Session = Depends(get_db)):
             detail="학번 또는 비밀번호가 올바르지 않습니다"
         )
     
-    # 3. 로그인 성공
+    # 3. JWT 토큰 생성
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": str(member.student_id)},  # subject: 사용자 식별자
+        expires_delta=access_token_expires
+    )
+    
+    # 4. 로그인 성공 응답
     logger.info(f"Login successful: student_id={login_data.student_id}")
     return {
-        "message": "로그인 성공",
-        "student_id": member.student_id,
-        "name": member.name,
-        "department": member.department
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # 초 단위로 변환
+        "user": {
+            "student_id": member.student_id,
+            "name": member.name,
+            "department": member.department,
+            "phone": member.phone
+        }
     }
+
+
+@router.get("/me", response_model=MemberResponse)
+def get_current_member(current_user: Member = Depends(get_current_user)):
+    """
+    현재 로그인한 사용자 정보 조회
+    
+    **인증 필요**: Authorization 헤더에 Bearer 토큰 필요
+    """
+    logger.info(f"Fetching current user info: student_id={current_user.student_id}")
+    return current_user
 
 
 @router.get("/check/{student_id}")
