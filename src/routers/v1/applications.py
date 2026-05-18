@@ -1,13 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from src.db.session import get_db
-from src.core.dependencies import get_current_user
+from src.core.dependencies import get_current_user, require_club_president
 from src.schemas.application import (
     ApplicationCreate,
     ApplicationUpdate,
     ApplicationResponse,
     ApplicationListItem,
+<<<<<<< Updated upstream
 )
+=======
+    ActiveClubItem,
+    ApplicationStatusUpdate,
+    AdminApplicationListItem,
+    AdminApplicationResponse,
+)
+from src.services import application_service, notification_service
+from src.services import club_service
+>>>>>>> Stashed changes
 
 router = APIRouter(tags=["applications"])
 
@@ -68,4 +78,75 @@ def get_submitted_application(
     current_user=Depends(get_current_user),
 ):
     """제출한 신청서 상세 조회 (읽기 전용)."""
+<<<<<<< Updated upstream
     raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+=======
+    app = application_service.get_submitted_application(db, current_user, application_id)
+    if not app:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="제출한 신청서를 찾을 수 없습니다.")
+    return app
+
+
+@router.get("/me/clubs", response_model=list[ActiveClubItem])
+def get_active_clubs(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """활동중인(합격한) 동아리 목록 조회."""
+    return application_service.get_active_clubs(db, current_user)
+
+
+# ── 관리자: 신청서 심사 ────────────────────────────────────────────────────────
+
+@router.get("/clubs/{club_id}/applications", response_model=list[AdminApplicationListItem])
+def list_club_applications(
+    club_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_club_president),
+):
+    """제출된 신청서 목록 조회 (회장 전용)."""
+    return application_service.get_club_applications(db, club_id)
+
+
+@router.get("/clubs/{club_id}/applications/{application_id}", response_model=AdminApplicationResponse)
+def get_club_application(
+    club_id: str,
+    application_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_club_president),
+):
+    """신청서 상세 조회 (회장 전용)."""
+    result = application_service.get_club_application(db, club_id, application_id)
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="신청서를 찾을 수 없습니다.")
+    return result
+
+
+@router.patch("/clubs/{club_id}/applications/{application_id}/status", response_model=AdminApplicationListItem)
+def update_application_status(
+    club_id: str,
+    application_id: str,
+    body: ApplicationStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_club_president),
+):
+    """심사 결과 업데이트 — pending(보류) / passed(합격) / failed(불합격) (회장 전용)."""
+    try:
+        app = application_service.update_application_status(db, club_id, application_id, body.status)
+    except LookupError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    club = club_service.get_club(db, club_id)
+    notification_service.send_application_result(db, app.user_id, club.name, body.status)
+
+    return {
+        "id": app.id,
+        "user_id": app.user_id,
+        "user_name": app.user.name,
+        "user_student_id": app.user.student_id,
+        "status": app.status,
+        "submitted_at": app.submitted_at,
+    }
+>>>>>>> Stashed changes

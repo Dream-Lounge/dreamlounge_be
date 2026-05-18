@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
+    SUPABASE_STORAGE_BUCKET: str = "club-images"
 
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = "noreply@dreamlounge.dev"

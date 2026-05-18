@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -6,6 +6,10 @@ from datetime import datetime
 class ApplicationAnswerCreate(BaseModel):
     question_id: str
     answer_text: str
+
+
+class ApplicationStatusUpdate(BaseModel):
+    status: str = Field(..., pattern="^(pending|passed|failed)$")
 
 
 class ApplicationCreate(BaseModel):
@@ -54,5 +58,28 @@ class ActiveClubItem(BaseModel):
     club_name: str
     role: str
     joined_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AdminApplicationListItem(BaseModel):
+    id: str
+    user_id: str
+    user_name: str
+    user_student_id: str
+    status: str
+    submitted_at: Optional[datetime]
+
+    model_config = {"from_attributes": True}
+
+
+class AdminApplicationResponse(BaseModel):
+    id: str
+    user_id: str
+    user_name: str
+    user_student_id: str
+    status: str
+    submitted_at: Optional[datetime]
+    answers: List[ApplicationAnswerResponse] = []
 
     model_config = {"from_attributes": True}

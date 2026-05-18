@@ -31,3 +31,36 @@ def get_current_user(
             detail="사용자를 찾을 수 없습니다.",
         )
     return user
+
+
+def require_club_president(club_id: str, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """해당 동아리의 현직 회장인지 확인. 아니면 403."""
+    from src.models.club_member import ClubMember
+    membership = db.query(ClubMember).filter(
+        ClubMember.club_id == club_id,
+        ClubMember.user_id == current_user.id,
+        ClubMember.role == "president",
+        ClubMember.status == "active",
+    ).first()
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="동아리 회장만 접근할 수 있습니다.",
+        )
+    return current_user
+
+
+def require_club_member(club_id: str, current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    """해당 동아리의 active 부원(회장 포함)인지 확인. 아니면 403."""
+    from src.models.club_member import ClubMember
+    membership = db.query(ClubMember).filter(
+        ClubMember.club_id == club_id,
+        ClubMember.user_id == current_user.id,
+        ClubMember.status == "active",
+    ).first()
+    if not membership:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="동아리 부원만 접근할 수 있습니다.",
+        )
+    return current_user
