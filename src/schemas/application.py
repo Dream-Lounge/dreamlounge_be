@@ -33,6 +33,8 @@ class ApplicationAnswerResponse(BaseModel):
 class ApplicationResponse(BaseModel):
     id: str
     form_id: str
+    club_id: Optional[str] = None
+    club_name: Optional[str] = None
     status: str
     is_draft: bool
     submitted_at: Optional[datetime]
@@ -45,6 +47,8 @@ class ApplicationResponse(BaseModel):
 class ApplicationListItem(BaseModel):
     id: str
     form_id: str
+    club_id: Optional[str] = None
+    club_name: Optional[str] = None
     status: str
     is_draft: bool
     submitted_at: Optional[datetime]

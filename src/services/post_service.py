@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, with_loader_criteria
 
 from src.models.post import Post, Comment
 from src.models.club_member import ClubMember
@@ -34,6 +34,7 @@ def create_post(db: Session, club_id: str, user: User, data: PostCreate) -> Post
 def get_posts(db: Session, club_id: str) -> list[Post]:
     return (
         db.query(Post)
+        .options(selectinload(Post.author))
         .filter(Post.club_id == club_id, Post.is_deleted == False)
         .order_by(Post.is_notice.desc(), Post.created_at.desc())
         .all()
@@ -43,7 +44,11 @@ def get_posts(db: Session, club_id: str) -> list[Post]:
 def get_post(db: Session, club_id: str, post_id: str) -> Post | None:
     return (
         db.query(Post)
-        .options(selectinload(Post.comments))
+        .options(
+            selectinload(Post.author),
+            selectinload(Post.comments).selectinload(Comment.author),
+            with_loader_criteria(Comment, Comment.is_deleted == False),
+        )
         .filter(Post.club_id == club_id, Post.id == post_id, Post.is_deleted == False)
         .first()
     )

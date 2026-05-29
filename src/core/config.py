@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     RESEND_FROM_EMAIL: str = "noreply@dreamlounge.dev"
 
-    FRONTEND_URL: str = "http://localhost:3000"
-    ALLOWED_ORIGINS: str = '["http://localhost:3000"]'
+    FRONTEND_URL: str = "http://localhost:5173"
+    ALLOWED_ORIGINS: str = '["http://localhost:5173", "http://localhost:3000"]'
 
     EMAIL_VERIFICATION_EXPIRY_MINUTES: int = 30
     CJU_EMAIL_DOMAIN: str = "cju.ac.kr"

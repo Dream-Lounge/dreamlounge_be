@@ -19,7 +19,12 @@ class Post(TimestampMixin, Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     club = relationship("Club", back_populates="posts")
+    author = relationship("User", foreign_keys=[author_id])
     comments = relationship("Comment", back_populates="post", cascade="all, delete-orphan")
+
+    @property
+    def author_name(self) -> str:
+        return self.author.name if self.author else ""
 
 
 class Comment(TimestampMixin, Base):
@@ -32,3 +37,8 @@ class Comment(TimestampMixin, Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     post = relationship("Post", back_populates="comments")
+    author = relationship("User", foreign_keys=[author_id])
+
+    @property
+    def author_name(self) -> str:
+        return self.author.name if self.author else ""

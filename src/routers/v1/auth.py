@@ -4,6 +4,7 @@ from sqlalchemy.exc import OperationalError as DBOperationalError
 from sqlalchemy.orm import Session
 
 from src.core.security import create_access_token
+from src.core.dependencies import get_current_user
 from src.db.session import get_db
 from src.schemas.user import (
     EmailVerifySendRequest,
@@ -11,6 +12,7 @@ from src.schemas.user import (
     UserCreate,
     LoginRequest,
     TokenResponse,
+    UserInfo,
     UserResponse,
 )
 from src.services import auth_service
@@ -75,7 +77,7 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
-    """학번 + 비밀번호 로그인 → JWT 반환."""
+    """학번 + 비밀번호 로그인 → JWT + 사용자 정보 반환."""
     user = auth_service.authenticate_user(db, body.student_id, body.password)
     if not user:
         raise HTTPException(
@@ -83,4 +85,10 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
             detail="학번 또는 비밀번호가 올바르지 않습니다.",
         )
     token = create_access_token({"sub": user.id})
-    return TokenResponse(access_token=token)
+    return TokenResponse(access_token=token, user=UserInfo.model_validate(user))
+
+
+@router.get("/me", response_model=UserInfo)
+def get_me(current_user=Depends(get_current_user)):
+    """현재 로그인한 사용자 정보 조회."""
+    return current_user

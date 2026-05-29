@@ -17,9 +17,8 @@ router = APIRouter(prefix="/clubs", tags=["posts"])
 def list_posts(
     club_id: str,
     db: Session = Depends(get_db),
-    current_user=Depends(require_club_member),
 ):
-    """게시글 목록 (부원 이상). 공지가 상단에 표시됩니다."""
+    """게시글 목록 (인증 불필요). 공지가 상단에 표시됩니다."""
     return post_service.get_posts(db, club_id)
 
 
@@ -45,9 +44,8 @@ def get_post(
     club_id: str,
     post_id: str,
     db: Session = Depends(get_db),
-    current_user=Depends(require_club_member),
 ):
-    """게시글 상세 + 댓글 목록 조회."""
+    """게시글 상세 + 댓글 목록 조회 (인증 불필요)."""
     post = post_service.get_post(db, club_id, post_id)
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="게시글을 찾을 수 없습니다.")

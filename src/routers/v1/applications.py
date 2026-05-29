@@ -7,17 +7,12 @@ from src.schemas.application import (
     ApplicationUpdate,
     ApplicationResponse,
     ApplicationListItem,
-<<<<<<< Updated upstream
-)
-=======
     ActiveClubItem,
     ApplicationStatusUpdate,
     AdminApplicationListItem,
     AdminApplicationResponse,
 )
-from src.services import application_service, notification_service
-from src.services import club_service
->>>>>>> Stashed changes
+from src.services import application_service, notification_service, club_service
 
 router = APIRouter(tags=["applications"])
 
@@ -29,7 +24,10 @@ def create_application(
     current_user=Depends(get_current_user),
 ):
     """신청서 임시저장(is_draft=true) 또는 제출(is_draft=false)."""
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+    try:
+        return application_service.create_application(db, current_user, body)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.patch("/applications/{application_id}", response_model=ApplicationResponse)
@@ -40,7 +38,27 @@ def update_application(
     current_user=Depends(get_current_user),
 ):
     """임시저장 신청서 수정 또는 최종 제출."""
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+    try:
+        return application_service.update_application(db, current_user, application_id, body)
+    except LookupError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.delete("/applications/{application_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_application(
+    application_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """신청서 삭제 또는 지원 취소 (합격·불합격 상태는 불가)."""
+    try:
+        application_service.delete_application(db, current_user, application_id)
+    except LookupError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/me/applications/drafts", response_model=list[ApplicationListItem])
@@ -49,7 +67,7 @@ def get_draft_applications(
     current_user=Depends(get_current_user),
 ):
     """임시저장함 목록 조회."""
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+    return application_service.get_draft_applications(db, current_user)
 
 
 @router.get("/me/applications/drafts/{application_id}", response_model=ApplicationResponse)
@@ -59,7 +77,10 @@ def get_draft_application(
     current_user=Depends(get_current_user),
 ):
     """임시저장 신청서 상세 조회 (수정 가능)."""
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+    app = application_service.get_draft_application(db, current_user, application_id)
+    if not app:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="임시저장 신청서를 찾을 수 없습니다.")
+    return app
 
 
 @router.get("/me/applications/submitted", response_model=list[ApplicationListItem])
@@ -68,7 +89,7 @@ def get_submitted_applications(
     current_user=Depends(get_current_user),
 ):
     """제출한 신청서 목록 + 상태 조회."""
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+    return application_service.get_submitted_applications(db, current_user)
 
 
 @router.get("/me/applications/submitted/{application_id}", response_model=ApplicationResponse)
@@ -78,9 +99,6 @@ def get_submitted_application(
     current_user=Depends(get_current_user),
 ):
     """제출한 신청서 상세 조회 (읽기 전용)."""
-<<<<<<< Updated upstream
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
-=======
     app = application_service.get_submitted_application(db, current_user, application_id)
     if not app:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="제출한 신청서를 찾을 수 없습니다.")
@@ -149,4 +167,3 @@ def update_application_status(
         "status": app.status,
         "submitted_at": app.submitted_at,
     }
->>>>>>> Stashed changes

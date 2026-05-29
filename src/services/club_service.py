@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from src.models.club import Club, ClubTag
 from src.models.club_member import ClubMember
 from src.models.application import ApplicationForm, FormQuestion
@@ -6,18 +6,30 @@ from src.models.user import User
 from src.schemas.club import ClubCreate, ClubUpdate, FormCreate, FormUpdate, QuestionCreate, QuestionUpdate
 
 
+def get_clubs(db: Session) -> list[Club]:
+    """전체 동아리 목록 조회 (tags + members 함께 로드)."""
+    return (
+        db.query(Club)
+        .options(selectinload(Club.tags), selectinload(Club.members))
+        .all()
+    )
+
+
 def get_club(db: Session, club_id: str) -> Club | None:
     """club_id로 동아리 상세 정보 조회 (tags 포함)."""
-    raise NotImplementedError
+    return (
+        db.query(Club)
+        .options(selectinload(Club.tags))
+        .filter(Club.id == club_id)
+        .first()
+    )
 
 
 def get_active_form(db: Session, club_id: str) -> ApplicationForm | None:
-<<<<<<< Updated upstream
     """동아리의 활성 신청 폼과 질문 목록 조회 (is_active=True인 최신 폼)."""
-    raise NotImplementedError
-=======
     return (
         db.query(ApplicationForm)
+        .options(selectinload(ApplicationForm.questions))
         .filter(ApplicationForm.club_id == club_id, ApplicationForm.is_active == True)
         .first()
     )
@@ -182,4 +194,3 @@ def reorder_questions(db: Session, club_id: str, question_ids: list[str]) -> App
     db.commit()
     db.refresh(form)
     return form
->>>>>>> Stashed changes

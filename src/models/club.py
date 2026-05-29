@@ -32,6 +32,10 @@ class Club(TimestampMixin, Base):
     application_forms = relationship("ApplicationForm", back_populates="club")
     posts = relationship("Post", back_populates="club")
 
+    @property
+    def member_count(self) -> int:
+        return sum(1 for m in self.members if m.status == "active")
+
 
 class ClubTag(Base):
     __tablename__ = "club_tags"

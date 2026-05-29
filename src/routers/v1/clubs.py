@@ -2,9 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from src.db.session import get_db
-<<<<<<< Updated upstream
-from src.schemas.club import ClubResponse, ApplicationFormResponse
-=======
 from src.core.dependencies import get_current_user, require_club_president
 from src.schemas.club import (
     ClubCreate, ClubUpdate, ClubResponse,
@@ -13,7 +10,6 @@ from src.schemas.club import (
 )
 from src.services import club_service
 from src.utils.storage import upload_club_image
->>>>>>> Stashed changes
 
 router = APIRouter(prefix="/clubs", tags=["clubs"])
 
@@ -40,18 +36,24 @@ async def upload_image(
     return ImageUploadResponse(image_url=url)
 
 
+@router.get("", response_model=list[ClubResponse])
+def list_clubs(db: Session = Depends(get_db)):
+    """동아리 목록 조회 (비회원 포함)."""
+    return club_service.get_clubs(db)
+
+
 @router.get("/{club_id}", response_model=ClubResponse)
 def get_club(club_id: str, db: Session = Depends(get_db)):
     """동아리 상세 조회 (비회원 포함)."""
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
+    club = club_service.get_club(db, club_id)
+    if not club:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="동아리를 찾을 수 없습니다.")
+    return club
 
 
 @router.get("/{club_id}/form", response_model=ApplicationFormResponse)
 def get_club_form(club_id: str, db: Session = Depends(get_db)):
     """동아리 신청 폼(질문 목록) 조회."""
-<<<<<<< Updated upstream
-    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED)
-=======
     form = club_service.get_active_form(db, club_id)
     if not form:
         raise HTTPException(
@@ -83,6 +85,8 @@ def update_club(
 ):
     """동아리 정보 수정 (회장 전용)."""
     club = club_service.get_club(db, club_id)
+    if not club:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="동아리를 찾을 수 없습니다.")
     try:
         return club_service.update_club(db, club, body)
     except ValueError as e:
@@ -174,4 +178,3 @@ def reorder_questions(
         return club_service.reorder_questions(db, club_id, body.question_ids)
     except (LookupError, ValueError) as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
->>>>>>> Stashed changes

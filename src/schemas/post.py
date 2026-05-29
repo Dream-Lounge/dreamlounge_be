@@ -16,6 +16,7 @@ class PostUpdate(BaseModel):
 class PostListItem(BaseModel):
     id: str
     author_id: str
+    author_name: str = ""
     post_type: str
     title: str
     is_notice: bool
@@ -45,6 +46,7 @@ class CommentResponse(BaseModel):
     id: str
     post_id: str
     author_id: str
+    author_name: str = ""
     content: str
     created_at: datetime
 
@@ -55,6 +57,7 @@ class PostDetailResponse(BaseModel):
     id: str
     club_id: str
     author_id: str
+    author_name: str = ""
     post_type: str
     title: str
     content: str

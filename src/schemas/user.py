@@ -33,9 +33,21 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UserInfo(BaseModel):
+    id: str
+    student_id: str
+    name: str
+    email: str
+    phone: Optional[str]
+    department: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user: UserInfo
 
 
 class UserResponse(BaseModel):

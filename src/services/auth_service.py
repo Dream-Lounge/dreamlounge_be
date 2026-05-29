@@ -44,7 +44,16 @@ def send_verification_code(db: Session, email: str) -> None:
     ))
     db.commit()
 
-    send_verification_email(email, code)
+    if not settings.RESEND_API_KEY:
+        import logging
+        logging.getLogger(__name__).warning(f"[개발모드] 이메일 인증번호: {email} → {code}")
+        return
+
+    try:
+        send_verification_email(email, code)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(f"[개발모드] 이메일 발송 실패, 인증번호 콘솔 출력: {email} → {code}")
 
 
 def confirm_verification_code(db: Session, email: str, code: str) -> None:

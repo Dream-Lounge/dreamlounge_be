@@ -70,6 +70,7 @@ class ClubResponse(BaseModel):
     recruit_start: Optional[date]
     recruit_end: Optional[date]
     is_recruiting: bool
+    member_count: int = 0
     tags: List[ClubTagResponse] = []
 
     model_config = {"from_attributes": True}
