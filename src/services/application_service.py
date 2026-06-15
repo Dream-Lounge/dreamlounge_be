@@ -151,6 +151,8 @@ def delete_application(db: Session, user: User, application_id: str) -> None:
         raise LookupError("신청서를 찾을 수 없습니다.")
     if app.status in ("passed", "failed"):
         raise ValueError("이미 심사가 완료된 신청서는 취소할 수 없습니다.")
+    # FK 제약 오류 방지: answers를 먼저 명시 삭제 후 application 삭제
+    db.query(ApplicationAnswer).filter(ApplicationAnswer.application_id == app.id).delete(synchronize_session=False)
     db.delete(app)
     db.commit()
 

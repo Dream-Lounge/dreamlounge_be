@@ -1,6 +1,6 @@
 from __future__ import annotations
 from uuid import uuid4
-from sqlalchemy import String, Boolean, Text, Date, ForeignKey
+from sqlalchemy import String, Boolean, Text, Date, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.db.base import Base, TimestampMixin
 
@@ -18,6 +18,7 @@ class Club(TimestampMixin, Base):
     contact_phone: Mapped[str | None] = mapped_column(String(20))
     open_chat_url: Mapped[str | None] = mapped_column(String(255))
     image_url: Mapped[str | None] = mapped_column(String(255))
+    activity_images: Mapped[list | None] = mapped_column(JSON, nullable=True)
     division: Mapped[str | None] = mapped_column(String(100))
     field: Mapped[str | None] = mapped_column(String(100))
     atmosphere: Mapped[str | None] = mapped_column(String(100))

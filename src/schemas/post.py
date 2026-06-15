@@ -21,6 +21,8 @@ class PostListItem(BaseModel):
     title: str
     is_notice: bool
     created_at: datetime
+    comment_count: int = 0
+    is_author_president: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -49,6 +51,7 @@ class CommentResponse(BaseModel):
     author_name: str = ""
     content: str
     created_at: datetime
+    is_author_president: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -63,6 +66,7 @@ class PostDetailResponse(BaseModel):
     content: str
     is_notice: bool
     created_at: datetime
+    is_author_president: bool = False
     comments: List[CommentResponse] = []
 
     model_config = {"from_attributes": True}

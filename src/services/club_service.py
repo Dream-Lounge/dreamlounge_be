@@ -48,6 +48,7 @@ def create_club(db: Session, user: User, data: ClubCreate) -> Club:
         contact_phone=data.contact_phone,
         open_chat_url=data.open_chat_url,
         image_url=data.image_url,
+        activity_images=data.activity_images or [],
         division=data.division,
         field=data.field,
         atmosphere=data.atmosphere,

@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     SUPABASE_URL: str = ""
-    SUPABASE_KEY: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_SERVICE_KEY: str = ""
     SUPABASE_STORAGE_BUCKET: str = "club-images"
 
     RESEND_API_KEY: str = ""

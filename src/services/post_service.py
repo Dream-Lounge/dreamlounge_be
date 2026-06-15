@@ -31,18 +31,42 @@ def create_post(db: Session, club_id: str, user: User, data: PostCreate) -> Post
     return post
 
 
-def get_posts(db: Session, club_id: str) -> list[Post]:
-    return (
+def _get_president_ids(db: Session, club_id: str) -> set:
+    rows = db.query(ClubMember.user_id).filter(
+        ClubMember.club_id == club_id,
+        ClubMember.role == "president",
+        ClubMember.status == "active",
+    ).all()
+    return {r.user_id for r in rows}
+
+
+def get_posts(db: Session, club_id: str) -> list[dict]:
+    president_ids = _get_president_ids(db, club_id)
+    posts = (
         db.query(Post)
-        .options(selectinload(Post.author))
+        .options(selectinload(Post.author), selectinload(Post.comments))
         .filter(Post.club_id == club_id, Post.is_deleted == False)
         .order_by(Post.is_notice.desc(), Post.created_at.desc())
         .all()
     )
+    result = []
+    for p in posts:
+        result.append({
+            "id": p.id,
+            "author_id": p.author_id,
+            "author_name": p.author.name if p.author else "",
+            "post_type": p.post_type,
+            "title": p.title,
+            "is_notice": p.is_notice,
+            "created_at": p.created_at,
+            "comment_count": sum(1 for c in p.comments if not c.is_deleted),
+            "is_author_president": p.author_id in president_ids,
+        })
+    return result
 
 
-def get_post(db: Session, club_id: str, post_id: str) -> Post | None:
-    return (
+def get_post(db: Session, club_id: str, post_id: str) -> dict | None:
+    post = (
         db.query(Post)
         .options(
             selectinload(Post.author),
@@ -52,6 +76,33 @@ def get_post(db: Session, club_id: str, post_id: str) -> Post | None:
         .filter(Post.club_id == club_id, Post.id == post_id, Post.is_deleted == False)
         .first()
     )
+    if not post:
+        return None
+    president_ids = _get_president_ids(db, club_id)
+    return {
+        "id": post.id,
+        "club_id": post.club_id,
+        "author_id": post.author_id,
+        "author_name": post.author.name if post.author else "",
+        "post_type": post.post_type,
+        "title": post.title,
+        "content": post.content,
+        "is_notice": post.is_notice,
+        "created_at": post.created_at,
+        "is_author_president": post.author_id in president_ids,
+        "comments": [
+            {
+                "id": c.id,
+                "post_id": c.post_id,
+                "author_id": c.author_id,
+                "author_name": c.author.name if c.author else "",
+                "content": c.content,
+                "created_at": c.created_at,
+                "is_author_president": c.author_id in president_ids,
+            }
+            for c in post.comments
+        ],
+    }
 
 
 def update_post(db: Session, club_id: str, post_id: str, user: User, data: PostUpdate) -> Post:

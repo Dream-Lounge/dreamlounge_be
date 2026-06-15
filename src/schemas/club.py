@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import date
 
@@ -23,6 +23,7 @@ class ClubCreate(BaseModel):
     contact_phone: Optional[str] = None
     open_chat_url: Optional[str] = None
     image_url: Optional[str] = None
+    activity_images: List[str] = []
     division: Optional[str] = None
     field: Optional[str] = None
     atmosphere: Optional[str] = None
@@ -42,6 +43,7 @@ class ClubUpdate(BaseModel):
     contact_phone: Optional[str] = None
     open_chat_url: Optional[str] = None
     image_url: Optional[str] = None
+    activity_images: Optional[List[str]] = None
     division: Optional[str] = None
     field: Optional[str] = None
     atmosphere: Optional[str] = None
@@ -62,6 +64,7 @@ class ClubResponse(BaseModel):
     contact_phone: Optional[str]
     open_chat_url: Optional[str]
     image_url: Optional[str]
+    activity_images: List[str] = []
     division: Optional[str]
     field: Optional[str]
     atmosphere: Optional[str]
@@ -72,6 +75,11 @@ class ClubResponse(BaseModel):
     is_recruiting: bool
     member_count: int = 0
     tags: List[ClubTagResponse] = []
+
+    @field_validator("activity_images", mode="before")
+    @classmethod
+    def coerce_activity_images(cls, v):
+        return v if isinstance(v, list) else []
 
     model_config = {"from_attributes": True}
 
