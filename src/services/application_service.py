@@ -8,6 +8,26 @@ from src.models.user import User
 from src.schemas.application import ApplicationCreate, ApplicationUpdate
 
 
+CLUB_PRESIDENT_APPLICATION_ERROR = "동아리 관리자는 본인 동아리에 신청할 수 없습니다."
+
+
+def _ensure_not_club_president(
+    db: Session, user_id: str, club_id: str
+) -> None:
+    membership = (
+        db.query(ClubMember)
+        .filter(
+            ClubMember.club_id == club_id,
+            ClubMember.user_id == user_id,
+            ClubMember.role == "president",
+            ClubMember.status == "active",
+        )
+        .first()
+    )
+    if membership:
+        raise PermissionError(CLUB_PRESIDENT_APPLICATION_ERROR)
+
+
 def _to_list_dict(app: Application) -> dict:
     return {
         "id": app.id,
@@ -41,6 +61,8 @@ def create_application(db: Session, user: User, data: ApplicationCreate) -> dict
     form = db.get(ApplicationForm, data.form_id)
     if not form or not form.is_active:
         raise ValueError("존재하지 않거나 비활성화된 신청 폼입니다.")
+
+    _ensure_not_club_president(db, user.id, form.club_id)
 
     existing_submitted = (
         db.query(Application)
@@ -99,6 +121,10 @@ def update_application(
     )
     if not app:
         raise LookupError("신청서를 찾을 수 없습니다.")
+
+    form = db.get(ApplicationForm, app.form_id)
+    _ensure_not_club_president(db, user.id, form.club_id)
+
     if not app.is_draft:
         raise ValueError("이미 제출된 신청서는 수정할 수 없습니다.")
 
@@ -120,7 +146,6 @@ def update_application(
 
     if submitting:
         answers_to_check = data.answers if data.answers is not None else app.answers
-        form = db.get(ApplicationForm, app.form_id)
         _validate_required_answers(form.questions, answers_to_check)
         app.is_draft = False
         app.status = "submitted"

@@ -84,6 +84,13 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="학번 또는 비밀번호가 올바르지 않습니다.",
         )
+    session = auth_service.create_supabase_session(db, user, body.password)
+    if session:
+        return TokenResponse(
+            access_token=session.access_token,
+            refresh_token=session.refresh_token,
+            user=UserInfo.model_validate(user),
+        )
     token = create_access_token({"sub": user.id})
     return TokenResponse(access_token=token, user=UserInfo.model_validate(user))
 

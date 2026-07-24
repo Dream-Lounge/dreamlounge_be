@@ -10,6 +10,7 @@ class User(TimestampMixin, Base):
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    auth_user_id: Mapped[str | None] = mapped_column(String(36), unique=True, nullable=True, index=True)
     student_id: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     name: Mapped[str] = mapped_column(String(50), nullable=False)

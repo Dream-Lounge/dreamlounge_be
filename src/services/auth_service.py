@@ -8,6 +8,7 @@ from src.core.security import hash_password, verify_password
 from src.models.user import User, PrivacyConsent, EmailVerification
 from src.schemas.user import UserCreate
 from src.utils.email import send_verification_email
+from src.utils.supabase_client import get_supabase_client
 
 
 def _generate_code() -> str:
@@ -81,7 +82,19 @@ def register_user(db: Session, data: UserCreate) -> User:
     if db.query(User).filter(User.email == email).first():
         raise ValueError("이미 가입된 이메일입니다.")
 
+    auth_user_id = None
+    if settings.SUPABASE_SERVICE_KEY:
+        client = get_supabase_client()
+        auth_response = client.auth.admin.create_user({
+            "email": email,
+            "password": data.password,
+            "email_confirm": True,
+            "user_metadata": {"student_id": data.student_id, "name": data.name},
+        })
+        auth_user_id = str(auth_response.user.id)
+
     user = User(
+        auth_user_id=auth_user_id,
         student_id=data.student_id,
         password_hash=hash_password(data.password),
         name=data.name,
@@ -115,3 +128,27 @@ def authenticate_user(db: Session, student_id: str, password: str) -> User | Non
     if not user.is_active:
         return None
     return user
+
+
+def create_supabase_session(db: Session, user: User, password: str):
+    """Supabase Auth 세션을 만들고 기존 계정은 최초 로그인 시 안전하게 연결한다."""
+    if not settings.SUPABASE_SERVICE_KEY:
+        return None
+
+    client = get_supabase_client()
+    if not user.auth_user_id:
+        if not verify_password(password, user.password_hash):
+            return None
+        auth_response = client.auth.admin.create_user({
+            "email": user.email,
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": {"student_id": user.student_id, "name": user.name},
+        })
+        user.auth_user_id = str(auth_response.user.id)
+        db.commit()
+
+    return client.auth.sign_in_with_password({
+        "email": user.email,
+        "password": password,
+    }).session
