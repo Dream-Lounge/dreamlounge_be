@@ -6,13 +6,26 @@ from src.models.user import User
 from src.schemas.club import ClubCreate, ClubUpdate, FormCreate, FormUpdate, QuestionCreate, QuestionUpdate
 
 
-def get_clubs(db: Session) -> list[Club]:
-    """전체 동아리 목록 조회 (tags + members 함께 로드)."""
-    return (
+def get_clubs(db: Session, search: str | None = None) -> list[Club]:
+    """전체 동아리 목록 조회. search가 있으면 동아리 이름으로 부분 검색."""
+    query = (
         db.query(Club)
         .options(selectinload(Club.tags), selectinload(Club.members))
-        .all()
     )
+
+    normalized_search = search.strip() if search else ""
+    if normalized_search:
+        escaped_search = (
+            normalized_search
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
+        query = query.filter(
+            Club.name.ilike(f"%{escaped_search}%", escape="\\")
+        )
+
+    return query.all()
 
 
 def get_club(db: Session, club_id: str) -> Club | None:
