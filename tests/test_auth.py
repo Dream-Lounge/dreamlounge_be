@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from src.models.user import EmailVerification
 
@@ -219,3 +219,96 @@ class TestLogin:
 
         resp = client.get("/api/v1/me/applications/drafts", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
+
+
+# ── 회원탈퇴 ───────────────────────────────────────────────────────────────────
+
+class TestAccountWithdrawal:
+    def test_withdraws_account_and_active_memberships(
+        self, client, db, auth_headers, seeded_club
+    ):
+        from src.models.club_member import ClubMember
+        from src.models.user import User
+
+        user = db.query(User).filter(User.student_id == "2021000001").one()
+        membership = ClubMember(
+            club_id=seeded_club["club"].id,
+            user_id=user.id,
+            role="member",
+            status="active",
+        )
+        db.add(membership)
+        db.commit()
+
+        resp = client.delete("/api/v1/auth/me", headers=auth_headers)
+
+        assert resp.status_code == 204
+        db.refresh(user)
+        db.refresh(membership)
+        assert user.is_active is False
+        assert user.withdrawn_at is not None
+        assert membership.status == "withdrawn"
+        assert membership.left_at is not None
+
+    def test_withdrawn_account_cannot_use_token_or_login(
+        self, client, db, auth_headers
+    ):
+        resp = client.delete("/api/v1/auth/me", headers=auth_headers)
+        assert resp.status_code == 204
+
+        me_resp = client.get("/api/v1/auth/me", headers=auth_headers)
+        login_resp = client.post("/api/v1/auth/login", json={
+            "student_id": "2021000001",
+            "password": "Password1!",
+        })
+
+        assert me_resp.status_code == 401
+        assert login_resp.status_code == 401
+
+    def test_active_president_must_transfer_role_first(
+        self, client, db, president_headers, seeded_club
+    ):
+        president = seeded_club["president"]
+
+        resp = client.delete("/api/v1/auth/me", headers=president_headers)
+
+        assert resp.status_code == 409
+        assert resp.json()["detail"] == (
+            "동아리 회장은 다른 부원에게 회장 권한을 이전한 후 "
+            "회원탈퇴할 수 있습니다."
+        )
+        db.refresh(president)
+        assert president.is_active is True
+        assert president.withdrawn_at is None
+
+    def test_soft_deletes_linked_supabase_auth_user(self, db):
+        from src.core.config import settings
+        from src.models.user import User
+        from src.services import auth_service
+
+        user = User(
+            auth_user_id="00000000-0000-0000-0000-000000000001",
+            student_id="WITHDRAW001",
+            password_hash="unused",
+            name="탈퇴테스트",
+            email="withdraw@cju.ac.kr",
+            email_verified=True,
+        )
+        db.add(user)
+        db.commit()
+
+        supabase = MagicMock()
+        with (
+            patch.object(settings, "SUPABASE_SERVICE_KEY", "test-service-key"),
+            patch(
+                "src.services.auth_service.get_supabase_client",
+                return_value=supabase,
+            ),
+        ):
+            auth_service.withdraw_user(db, user)
+
+        supabase.auth.admin.delete_user.assert_called_once_with(
+            user.auth_user_id,
+            should_soft_delete=True,
+        )
+        assert user.is_active is False

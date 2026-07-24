@@ -1,14 +1,22 @@
 import random
 import string
+import logging
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from src.core.config import settings
 from src.core.security import hash_password, verify_password
+from src.models.club_member import ClubMember
 from src.models.user import User, PrivacyConsent, EmailVerification
 from src.schemas.user import UserCreate
 from src.utils.email import send_verification_email
 from src.utils.supabase_client import get_supabase_client
+
+
+logger = logging.getLogger(__name__)
+ACTIVE_PRESIDENT_WITHDRAWAL_ERROR = (
+    "동아리 회장은 다른 부원에게 회장 권한을 이전한 후 회원탈퇴할 수 있습니다."
+)
 
 
 def _generate_code() -> str:
@@ -152,3 +160,39 @@ def create_supabase_session(db: Session, user: User, password: str):
         "email": user.email,
         "password": password,
     }).session
+
+
+def withdraw_user(db: Session, user: User) -> None:
+    """계정을 비활성화하고 활동 중인 일반 멤버십을 종료한다."""
+    active_presidency = db.query(ClubMember).filter(
+        ClubMember.user_id == user.id,
+        ClubMember.role == "president",
+        ClubMember.status == "active",
+    ).first()
+    if active_presidency:
+        raise PermissionError(ACTIVE_PRESIDENT_WITHDRAWAL_ERROR)
+
+    withdrawn_at = datetime.utcnow()
+    active_memberships = db.query(ClubMember).filter(
+        ClubMember.user_id == user.id,
+        ClubMember.status == "active",
+    ).all()
+    for membership in active_memberships:
+        membership.status = "withdrawn"
+        membership.left_at = withdrawn_at
+
+    user.is_active = False
+    user.withdrawn_at = withdrawn_at
+
+    try:
+        db.flush()
+        if settings.SUPABASE_SERVICE_KEY and user.auth_user_id:
+            get_supabase_client().auth.admin.delete_user(
+                user.auth_user_id,
+                should_soft_delete=True,
+            )
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.error("회원탈퇴 처리 중 오류가 발생했습니다.", exc_info=True)
+        raise RuntimeError("회원탈퇴 처리에 실패했습니다.") from exc
