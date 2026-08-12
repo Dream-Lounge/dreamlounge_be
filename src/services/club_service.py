@@ -1,3 +1,4 @@
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, selectinload
 from src.models.club import Club, ClubTag
 from src.models.club_member import ClubMember
@@ -7,7 +8,7 @@ from src.schemas.club import ClubCreate, ClubUpdate, FormCreate, FormUpdate, Que
 
 
 def get_clubs(db: Session, search: str | None = None) -> list[Club]:
-    """전체 동아리 목록 조회. search가 있으면 동아리 이름으로 부분 검색."""
+    """Return clubs whose name or division partially matches ``search``."""
     query = (
         db.query(Club)
         .options(selectinload(Club.tags), selectinload(Club.members))
@@ -21,8 +22,12 @@ def get_clubs(db: Session, search: str | None = None) -> list[Club]:
             .replace("%", "\\%")
             .replace("_", "\\_")
         )
+        pattern = f"%{escaped_search}%"
         query = query.filter(
-            Club.name.ilike(f"%{escaped_search}%", escape="\\")
+            or_(
+                Club.name.ilike(pattern, escape="\\"),
+                Club.division.ilike(pattern, escape="\\"),
+            )
         )
 
     return query.all()

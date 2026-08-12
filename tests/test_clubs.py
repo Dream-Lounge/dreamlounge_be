@@ -27,6 +27,55 @@ class TestListClubs:
         assert resp.status_code == 200
         assert [item["id"] for item in resp.json()] == [club.id]
 
+    def test_searches_by_partial_division(self, client, db, seeded_club):
+        from src.models.club import Club
+
+        performance_club = Club(
+            president_id=seeded_club["president"].id,
+            name="Stage Crew",
+            division="\uacf5\uc5f0\uc608\uc220\ubd84\uacfc",
+            is_recruiting=True,
+        )
+        academic_club = Club(
+            president_id=seeded_club["president"].id,
+            name="Book Circle",
+            division="\uad50\uc591\ud559\uc220\ubd84\uacfc",
+            is_recruiting=True,
+        )
+        db.add_all([performance_club, academic_club])
+        db.commit()
+
+        resp = client.get("/api/v1/clubs", params={"search": "\uacf5\uc5f0"})
+
+        assert resp.status_code == 200
+        assert [item["id"] for item in resp.json()] == [performance_club.id]
+
+    def test_search_matches_name_or_division(self, client, db, seeded_club):
+        from src.models.club import Club
+
+        club_matched_by_name = Club(
+            president_id=seeded_club["president"].id,
+            name="Culture Makers",
+            division="\uacf5\uc5f0\uc608\uc220\ubd84\uacfc",
+            is_recruiting=True,
+        )
+        club_matched_by_division = Club(
+            president_id=seeded_club["president"].id,
+            name="Book Circle",
+            division="Culture Division",
+            is_recruiting=True,
+        )
+        db.add_all([club_matched_by_name, club_matched_by_division])
+        db.commit()
+
+        resp = client.get("/api/v1/clubs", params={"search": "culture"})
+
+        assert resp.status_code == 200
+        assert {item["id"] for item in resp.json()} == {
+            club_matched_by_name.id,
+            club_matched_by_division.id,
+        }
+
     def test_returns_empty_list_when_name_does_not_match(self, client, seeded_club):
         resp = client.get("/api/v1/clubs", params={"search": "존재하지않는동아리"})
 
