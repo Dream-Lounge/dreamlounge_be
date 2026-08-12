@@ -1,8 +1,14 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from unittest.mock import patch
+
+# 테스트가 개발/운영 .env의 Supabase Auth 사용자를 생성하거나 삭제하지 않도록
+# 애플리케이션 설정이 로드되기 전에 외부 Auth 연동을 비활성화한다.
+os.environ["SUPABASE_SERVICE_KEY"] = ""
 
 from src.main import app
 from src.db.base import Base
@@ -67,7 +73,7 @@ def register_and_login(client, db, student_id: str, email: str, password: str = 
 
     code = db.query(EmailVerification).filter(
         EmailVerification.email == email,
-        EmailVerification.is_used == False,
+        EmailVerification.is_used.is_(False),
     ).first().code
 
     client.post("/api/v1/auth/register", json={

@@ -35,7 +35,7 @@ class TestEmailVerifySend:
 
         unused = db.query(EmailVerification).filter(
             EmailVerification.email == "resend@cju.ac.kr",
-            EmailVerification.is_used == False,
+            EmailVerification.is_used.is_(False),
         ).all()
         assert len(unused) == 1
 
@@ -49,7 +49,7 @@ class TestEmailVerifyConfirm:
 
         code = db.query(EmailVerification).filter(
             EmailVerification.email == "confirm@cju.ac.kr",
-            EmailVerification.is_used == False,
+            EmailVerification.is_used.is_(False),
         ).first().code
 
         resp = client.post("/api/v1/auth/email-verify/confirm", json={
@@ -95,7 +95,7 @@ class TestRegister:
             client.post("/api/v1/auth/email-verify/send", json={"email": email})
         return db.query(EmailVerification).filter(
             EmailVerification.email == email,
-            EmailVerification.is_used == False,
+            EmailVerification.is_used.is_(False),
         ).first().code
 
     def _base_payload(self, code, student_id=None, email=None):
@@ -171,7 +171,7 @@ class TestLogin:
             client.post("/api/v1/auth/email-verify/send", json={"email": self.EMAIL})
         code = db.query(EmailVerification).filter(
             EmailVerification.email == self.EMAIL,
-            EmailVerification.is_used == False,
+            EmailVerification.is_used.is_(False),
         ).first().code
         client.post("/api/v1/auth/register", json={
             "student_id": self.STUDENT_ID,
@@ -247,6 +247,12 @@ class TestAccountWithdrawal:
         db.refresh(membership)
         assert user.is_active is False
         assert user.withdrawn_at is not None
+        assert user.student_id.startswith("deleted_")
+        assert user.email.endswith("@invalid.local")
+        assert user.name == "탈퇴한 사용자"
+        assert user.phone is None
+        assert user.department is None
+        assert user.auth_user_id is None
         assert membership.status == "withdrawn"
         assert membership.left_at is not None
 
@@ -265,6 +271,50 @@ class TestAccountWithdrawal:
         assert me_resp.status_code == 401
         assert login_resp.status_code == 401
 
+    def test_can_register_again_with_same_student_id_and_email(
+        self, client, db, auth_headers
+    ):
+        from src.models.user import EmailVerification, User
+
+        original_user = db.query(User).filter(
+            User.student_id == "2021000001",
+        ).one()
+        original_user_id = original_user.id
+
+        withdraw_resp = client.delete("/api/v1/auth/me", headers=auth_headers)
+        assert withdraw_resp.status_code == 204
+
+        with patch("src.services.auth_service.send_verification_email"):
+            send_resp = client.post(
+                "/api/v1/auth/email-verify/send",
+                json={"email": "user@cju.ac.kr"},
+            )
+        assert send_resp.status_code == 200
+
+        code = db.query(EmailVerification).filter(
+            EmailVerification.email == "user@cju.ac.kr",
+            EmailVerification.is_used.is_(False),
+        ).one().code
+        register_resp = client.post("/api/v1/auth/register", json={
+            "student_id": "2021000001",
+            "password": "NewPassword1!",
+            "name": "재가입 사용자",
+            "phone": "010-1111-2222",
+            "department": "컴퓨터공학과",
+            "email": "user@cju.ac.kr",
+            "verification_code": code,
+            "privacy_consent": {
+                "required_agreed": True,
+                "optional_agreed": False,
+            },
+        })
+
+        assert register_resp.status_code == 201
+        assert register_resp.json()["id"] != original_user_id
+        new_user = db.query(User).filter(User.student_id == "2021000001").one()
+        assert new_user.email == "user@cju.ac.kr"
+        assert new_user.is_active is True
+
     def test_active_president_must_transfer_role_first(
         self, client, db, president_headers, seeded_club
     ):
@@ -281,7 +331,7 @@ class TestAccountWithdrawal:
         assert president.is_active is True
         assert president.withdrawn_at is None
 
-    def test_soft_deletes_linked_supabase_auth_user(self, db):
+    def test_hard_deletes_linked_supabase_auth_user(self, db):
         from src.core.config import settings
         from src.models.user import User
         from src.services import auth_service
@@ -297,6 +347,7 @@ class TestAccountWithdrawal:
         db.add(user)
         db.commit()
 
+        auth_user_id = user.auth_user_id
         supabase = MagicMock()
         with (
             patch.object(settings, "SUPABASE_SERVICE_KEY", "test-service-key"),
@@ -308,7 +359,8 @@ class TestAccountWithdrawal:
             auth_service.withdraw_user(db, user)
 
         supabase.auth.admin.delete_user.assert_called_once_with(
-            user.auth_user_id,
-            should_soft_delete=True,
+            auth_user_id,
+            should_soft_delete=False,
         )
         assert user.is_active is False
+        assert user.auth_user_id is None
