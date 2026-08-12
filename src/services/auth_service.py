@@ -1,4 +1,5 @@
 import random
+import secrets
 import string
 import logging
 from datetime import datetime, timedelta
@@ -28,7 +29,7 @@ def _get_valid_verification(db: Session, email: str, code: str) -> EmailVerifica
     return db.query(EmailVerification).filter(
         EmailVerification.email == email,
         EmailVerification.code == code,
-        EmailVerification.is_used == False,
+        EmailVerification.is_used.is_(False),
         EmailVerification.expires_at > datetime.utcnow(),
     ).first()
 
@@ -42,7 +43,7 @@ def send_verification_code(db: Session, email: str) -> None:
 
     db.query(EmailVerification).filter(
         EmailVerification.email == email,
-        EmailVerification.is_used == False,
+        EmailVerification.is_used.is_(False),
     ).update({"is_used": True})
 
     db.add(EmailVerification(
@@ -163,7 +164,7 @@ def create_supabase_session(db: Session, user: User, password: str):
 
 
 def withdraw_user(db: Session, user: User) -> None:
-    """계정을 비활성화하고 활동 중인 일반 멤버십을 종료한다."""
+    """인증 계정을 삭제하고 개인정보를 익명화해 동일 정보 재가입을 허용한다."""
     active_presidency = db.query(ClubMember).filter(
         ClubMember.user_id == user.id,
         ClubMember.role == "president",
@@ -181,15 +182,36 @@ def withdraw_user(db: Session, user: User) -> None:
         membership.status = "withdrawn"
         membership.left_at = withdrawn_at
 
+    original_email = user.email
+    auth_user_id = user.auth_user_id
+
+    # 활동 기록의 외래 키는 유지하되 개인정보와 고유값은 제거한다.
+    # 따라서 기존 게시글/지원서는 탈퇴 사용자 기록으로 남고, 같은 학번과
+    # 이메일은 새로운 계정에서 다시 사용할 수 있다.
+    user.auth_user_id = None
+    user.student_id = f"deleted_{user.id.replace('-', '')[:12]}"
+    user.password_hash = hash_password(secrets.token_urlsafe(32))
+    user.name = "탈퇴한 사용자"
+    user.phone = None
+    user.department = None
+    user.email = f"deleted+{user.id}@invalid.local"
+    user.email_verified = False
     user.is_active = False
     user.withdrawn_at = withdrawn_at
 
+    db.query(PrivacyConsent).filter(
+        PrivacyConsent.user_id == user.id,
+    ).delete(synchronize_session=False)
+    db.query(EmailVerification).filter(
+        EmailVerification.email == original_email,
+    ).delete(synchronize_session=False)
+
     try:
         db.flush()
-        if settings.SUPABASE_SERVICE_KEY and user.auth_user_id:
+        if settings.SUPABASE_SERVICE_KEY and auth_user_id:
             get_supabase_client().auth.admin.delete_user(
-                user.auth_user_id,
-                should_soft_delete=True,
+                auth_user_id,
+                should_soft_delete=False,
             )
         db.commit()
     except Exception as exc:

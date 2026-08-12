@@ -41,7 +41,7 @@ def list_clubs(
     search: str | None = Query(default=None, max_length=100),
     db: Session = Depends(get_db),
 ):
-    """동아리 목록 조회. search 입력 시 동아리 이름으로 부분 검색."""
+    """동아리 목록 조회. search 입력 시 동아리 이름 또는 분과로 부분 검색."""
     return club_service.get_clubs(db, search)
 
 
