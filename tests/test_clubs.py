@@ -1,3 +1,39 @@
+class TestListClubs:
+    def test_returns_all_clubs_without_search(self, client, seeded_club):
+        resp = client.get("/api/v1/clubs")
+
+        assert resp.status_code == 200
+        assert seeded_club["club"].id in {club["id"] for club in resp.json()}
+
+    def test_searches_by_partial_club_name(self, client, seeded_club):
+        resp = client.get("/api/v1/clubs", params={"search": "스트동"})
+
+        assert resp.status_code == 200
+        assert [club["id"] for club in resp.json()] == [seeded_club["club"].id]
+
+    def test_search_is_case_insensitive(self, client, db, seeded_club):
+        from src.models.club import Club
+
+        club = Club(
+            president_id=seeded_club["president"].id,
+            name="Dream Lounge Band",
+            is_recruiting=False,
+        )
+        db.add(club)
+        db.commit()
+
+        resp = client.get("/api/v1/clubs", params={"search": "lOuNgE"})
+
+        assert resp.status_code == 200
+        assert [item["id"] for item in resp.json()] == [club.id]
+
+    def test_returns_empty_list_when_name_does_not_match(self, client, seeded_club):
+        resp = client.get("/api/v1/clubs", params={"search": "존재하지않는동아리"})
+
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+
 class TestGetClub:
     def test_not_found(self, client):
         resp = client.get("/api/v1/clubs/nonexistent-id")

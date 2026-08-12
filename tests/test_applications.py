@@ -16,6 +16,22 @@ def app_setup(client, db, auth_headers, seeded_club):
 # ── 신청서 생성 ────────────────────────────────────────────────────────────────
 
 class TestCreateApplication:
+    @pytest.mark.parametrize("is_draft", [True, False])
+    def test_club_president_cannot_create_application(
+        self, client, app_setup, president_headers, is_draft
+    ):
+        resp = client.post("/api/v1/applications", headers=president_headers, json={
+            "form_id": app_setup["form_id"],
+            "is_draft": is_draft,
+            "answers": [{
+                "question_id": app_setup["question_id"],
+                "answer_text": "회장 신청 답변",
+            }],
+        })
+
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "동아리 관리자는 본인 동아리에 신청할 수 없습니다."
+
     def test_create_draft(self, client, app_setup):
         resp = client.post("/api/v1/applications", headers=app_setup["headers"], json={
             "form_id": app_setup["form_id"],
@@ -157,6 +173,50 @@ class TestUpdateApplication:
             "answers": [{"question_id": app_setup["question_id"], "answer_text": "해킹 시도"}],
         })
         assert resp.status_code == 404
+
+    @pytest.mark.parametrize("operation", ["update", "submit"])
+    def test_cannot_change_draft_after_becoming_club_president(
+        self, client, db, app_setup, seeded_club, operation
+    ):
+        """임시저장 후 회장이 되면 수정과 제출 모두 불가."""
+        from src.models.club_member import ClubMember
+        from src.models.user import User
+        from src.services import member_service
+
+        app_id = self._create_draft(client, app_setup)
+        user = db.query(User).filter(User.student_id == "2021000001").first()
+        db.add(ClubMember(
+            club_id=app_setup["club_id"],
+            user_id=user.id,
+            role="member",
+            status="active",
+        ))
+        db.commit()
+        member_service.transfer_role(
+            db,
+            app_setup["club_id"],
+            seeded_club["president"].id,
+            user.id,
+        )
+
+        body = (
+            {
+                "answers": [{
+                    "question_id": app_setup["question_id"],
+                    "answer_text": "회장 취임 후 수정 시도",
+                }],
+            }
+            if operation == "update"
+            else {"is_draft": False}
+        )
+        resp = client.patch(
+            f"/api/v1/applications/{app_id}",
+            headers=app_setup["headers"],
+            json=body,
+        )
+
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "동아리 관리자는 본인 동아리에 신청할 수 없습니다."
 
 
 # ── 임시저장함 ─────────────────────────────────────────────────────────────────

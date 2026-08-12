@@ -26,6 +26,8 @@ def create_application(
     """신청서 임시저장(is_draft=true) 또는 제출(is_draft=false)."""
     try:
         return application_service.create_application(db, current_user, body)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -42,6 +44,8 @@ def update_application(
         return application_service.update_application(db, current_user, application_id, body)
     except LookupError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

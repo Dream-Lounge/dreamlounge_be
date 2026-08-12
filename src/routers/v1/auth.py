@@ -84,6 +84,13 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="학번 또는 비밀번호가 올바르지 않습니다.",
         )
+    session = auth_service.create_supabase_session(db, user, body.password)
+    if session:
+        return TokenResponse(
+            access_token=session.access_token,
+            refresh_token=session.refresh_token,
+            user=UserInfo.model_validate(user),
+        )
     token = create_access_token({"sub": user.id})
     return TokenResponse(access_token=token, user=UserInfo.model_validate(user))
 
@@ -92,3 +99,20 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 def get_me(current_user=Depends(get_current_user)):
     """현재 로그인한 사용자 정보 조회."""
     return current_user
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def withdraw_me(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """현재 로그인한 사용자 회원탈퇴."""
+    try:
+        auth_service.withdraw_user(db, current_user)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e),
+        )

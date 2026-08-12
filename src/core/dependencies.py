@@ -4,6 +4,8 @@ from jose import JWTError
 from sqlalchemy.orm import Session
 from src.db.session import get_db
 from src.core.security import decode_access_token
+from src.core.config import settings
+from src.utils.supabase_client import get_supabase_client
 
 bearer = HTTPBearer()
 
@@ -13,18 +15,24 @@ def get_current_user(
     db: Session = Depends(get_db),
 ):
     try:
-        payload = decode_access_token(credentials.credentials)
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise ValueError
-    except (JWTError, ValueError):
+        if settings.SUPABASE_SERVICE_KEY:
+            auth_user = get_supabase_client().auth.get_user(credentials.credentials).user
+            user_id = str(auth_user.id)
+            from src.models.user import User
+            user = db.query(User).filter(User.auth_user_id == user_id).first()
+        else:
+            payload = decode_access_token(credentials.credentials)
+            user_id = payload.get("sub")
+            if user_id is None:
+                raise ValueError
+            from src.models.user import User
+            user = db.get(User, user_id)
+    except (JWTError, ValueError, Exception):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="유효하지 않은 인증 토큰입니다.",
         )
 
-    from src.models.user import User
-    user = db.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from src.db.session import get_db
@@ -37,9 +37,12 @@ async def upload_image(
 
 
 @router.get("", response_model=list[ClubResponse])
-def list_clubs(db: Session = Depends(get_db)):
-    """동아리 목록 조회 (비회원 포함)."""
-    return club_service.get_clubs(db)
+def list_clubs(
+    search: str | None = Query(default=None, max_length=100),
+    db: Session = Depends(get_db),
+):
+    """동아리 목록 조회. search 입력 시 동아리 이름으로 부분 검색."""
+    return club_service.get_clubs(db, search)
 
 
 @router.get("/{club_id}", response_model=ClubResponse)
