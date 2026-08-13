@@ -1,6 +1,6 @@
 import logging
 from supabase import create_client, Client
-from supabase.lib.client_options import ClientOptions
+from supabase.client import ClientOptions
 
 from src.core.config import settings
 
